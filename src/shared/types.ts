@@ -127,9 +127,23 @@ export interface AppSettings {
   high_volume_per_month: number;
   confirm_threshold: number;
   llm_enabled: boolean;
-  llm_api_key: string | null;
-  llm_cost_cap_usd: number;
+  llm_endpoint: string;
+  llm_model: string;
+  llm_max_per_run: number;
   session_mutation_cap: number;
+}
+
+export interface LlmRunProgress {
+  phase: "classifying" | "done" | "error";
+  total: number;
+  done: number;
+  message?: string;
+}
+
+export interface LlmTestResult {
+  ok: boolean;
+  models?: string[];
+  error?: string;
 }
 
 export interface ConnectedAccount {
@@ -184,7 +198,10 @@ export type IpcChannels = {
   "rules:delete": { args: [{ id: number }]; result: void };
   "settings:get": { args: []; result: AppSettings };
   "settings:set": { args: [Partial<AppSettings>]; result: AppSettings };
+  "llm:test": { args: []; result: LlmTestResult };
+  "llm:run": { args: []; result: { classified: number; skipped: number } };
 
   // events (main → renderer, one-way)
   "sync:progress": SyncProgress;
+  "llm:progress": LlmRunProgress;
 };

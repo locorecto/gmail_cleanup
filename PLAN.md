@@ -56,7 +56,7 @@ slipped through.
             ┌─────────────┴──────────────┐
             │                            │
    ┌────────▼─────────┐         ┌────────▼──────────┐
-   │ Gmail REST API   │         │ Anthropic API     │
+   │ Gmail REST API   │         │ Local Ollama HTTP │
    │  (googleapis)    │         │ (optional, opt-in)│
    └──────────────────┘         └───────────────────┘
 ```
@@ -82,7 +82,7 @@ slipped through.
 | `sync`            | Incremental fetch via historyId, batched message metadata     |
 | `db`              | SQLite schema, migrations, query helpers                      |
 | `categorizer`     | Heuristic rules, scoring, category assignment                 |
-| `llm-classifier` | Optional Anthropic Claude Haiku calls for ambiguous messages  |
+| `llm-classifier` | Optional local Ollama calls for ambiguous messages (free, runs locally) |
 | `actions`         | `batchModify` to Trash, label apply, undo replay              |
 | `rules`           | Allowlist (senders/keywords/domains), protected criteria      |
 | `ui`              | React app: categories, batch review, settings, action log     |
@@ -100,7 +100,7 @@ slipped through.
 | DB         | SQLite via `better-sqlite3`           | Synchronous, fast, perfect for 100k+ rows on one disk |
 | Gmail SDK  | `googleapis` (official Node client)   | Built-in batching, retries, typed responses           |
 | OAuth      | `google-auth-library` + `keytar`      | Refresh handling + Windows Credential Manager via keytar |
-| LLM        | `@anthropic-ai/sdk` (Claude Haiku 4.5)| Cheap, fast, structured outputs                       |
+| LLM        | **Ollama** local HTTP API (`llama3.2:3b` default) | Free, fully local, no data leaves the machine. JSON-mode output |
 | Packaging  | `electron-builder` → NSIS + portable  | Windows-only target per requirements                  |
 | Testing    | Vitest (unit), Playwright (e2e UI)    | Standard for this stack                               |
 | Lint/fmt   | Biome (or ESLint + Prettier)          | Single binary, fast                                   |
@@ -227,19 +227,32 @@ high-volume = 20/month.
 - Messages that fall through all rules → marked `needs_llm` if LLM is
   enabled, else `uncategorized` (not shown for deletion).
 
-### LLM path (Anthropic Claude Haiku 4.5)
+### LLM path (local Ollama)
 
-- **Opt-in** via Settings. Off by default.
+- **Opt-in** via Settings. Off by default. No cloud calls, no API keys,
+  no cost — runs entirely against a local Ollama server.
+- **Prereqs**: user installs Ollama from <https://ollama.com>, runs
+  `ollama pull llama3.2:3b` (default; configurable). Default endpoint
+  `http://127.0.0.1:11434`.
 - **Payload sent per message**: `from`, `subject`, `snippet` (Gmail's
   ~200-char snippet — already truncated by Gmail), `age_days`,
-  `is_unread`, `has_list_unsubscribe`. **Never** the full body.
-- **Batched**: 20 messages per API call, structured output via a JSON
-  tool schema, model returns `{ id, category, confidence, rationale }`.
-- Prompt-cache the system prompt + category definitions for the run
-  (Anthropic prompt caching, 5-min TTL) — saves cost on long runs.
-- Cost ballpark: ~$0.001 per message at Haiku 4.5 pricing. 10k
-  ambiguous messages ≈ $10. Show a running cost estimate before the
-  user kicks off an LLM pass.
+  `is_unread`, `has_list_unsubscribe`. **Never** the full body. Same
+  data that would have gone to a cloud API, just routed to localhost.
+- **Transport**: HTTP POST to `/api/chat` with `format: "json"` and
+  `stream: false`. One message per request, temperature 0, num_ctx 2048
+  — keeps small models reliable.
+- **Output schema**: model returns
+  `{ "category": "<id>", "confidence": 0..1, "reason": "<short>" }`.
+  Invalid or `"uncategorized"` responses leave the message unclassified.
+- **Cap**: `llm_max_per_run` setting (default 2000) bounds each run so
+  the user can ctrl-C-equivalent (close the app) without losing much
+  work, and so a slow local model doesn't tie up an entire afternoon.
+- **Cost**: $0. Latency depends on the user's hardware and model size:
+  on a CPU-only laptop, `llama3.2:3b` takes ~1–3 s per message; on a
+  modern GPU, well under a second. Larger models (e.g. `qwen2.5:7b`)
+  give better classification at higher latency.
+- **Test button** in Settings calls `/api/tags` to verify the endpoint
+  is reachable and lists installed models.
 
 ### Conflict resolution
 
@@ -385,7 +398,7 @@ toward hand-rolled — fewer dependencies for a small schema.
 5. **Settings**
    - Thresholds (months for receipts, attachments, high-volume).
    - Allowlist: senders, domains, keywords, labels (e.g. `Family`).
-   - LLM toggle + API key field + cost cap per run.
+   - LLM toggle + Ollama endpoint + model name + max-messages-per-run cap.
    - Category enable/disable + per-category default action.
    - Sign out / revoke access.
 
@@ -477,13 +490,14 @@ look right; allowlist is honored.
 **Exit criterion:** I'd let a non-technical friend use this without
 fearing data loss.
 
-### Phase 4 — Optional LLM classifier (nice-to-have)
-- Anthropic SDK integration, opt-in toggle, API key in keychain.
-- Batched calls with structured output + prompt caching.
-- Cost estimator before run, hard cost cap.
+### Phase 4 — Optional LLM classifier (local Ollama)
+- HTTP integration with a local Ollama server, opt-in toggle.
+- Configurable endpoint + model + per-run cap in Settings.
+- Test-connection button calling `/api/tags`.
+- One request per message with `format: "json"`, temperature 0.
 - Surface LLM-suggested category with rationale in the UI.
 **Exit criterion:** LLM pass over previously-uncategorized messages
-yields a non-trivial extra batch I'd actually delete.
+yields a non-trivial extra batch I'd actually delete — at $0 cost.
 
 ### Phase 5 — Nice-to-haves (not scoped to a weekend each)
 - Unsubscribe assistant: parse List-Unsubscribe and offer one-click
@@ -522,7 +536,8 @@ yields a non-trivial extra batch I'd actually delete.
 | keytar prebuilt binary missing for Electron version                 | Document `npm rebuild keytar --runtime=electron --target=<ver>`; uses Windows Credential Manager natively |
 | Windows code-signing required to avoid SmartScreen warning          | Ship unsigned for personal use; document "More info → Run anyway"     |
 | `better-sqlite3` native build fails on Windows without build tools  | Document "node-gyp" / Windows Build Tools install in README           |
-| Anthropic API key leak via logs                                     | Redact in all log paths; store only in keychain                       |
+| Local Ollama server not running when LLM pass is invoked            | "Test connection" button in Settings; clear error surfaced in UI       |
+| Small local models hallucinate category labels                      | Validate response against fixed category-id allowlist; invalid → skip  |
 | User accidentally trashes 100k messages and panics                  | "Undo last batch" is the prominent header action for 24h after a batch |
 
 ---
@@ -572,7 +587,7 @@ gmail_cleanup/
 │   │   ├── db/queries.ts
 │   │   ├── categorizer/rules.ts     All §4 rules
 │   │   ├── categorizer/engine.ts    Cascade runner
-│   │   ├── categorizer/llm.ts       Anthropic optional path
+│   │   ├── categorizer/llm.ts       Local Ollama HTTP optional path
 │   │   ├── actions/executor.ts      batchModify, action_log writes
 │   │   ├── actions/undo.ts
 │   │   ├── ipc/handlers.ts          IPC contract for renderer

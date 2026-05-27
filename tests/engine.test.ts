@@ -35,8 +35,9 @@ function openTestDb(): Database.Database {
     ["high_volume_per_month", "20"],
     ["confirm_threshold", "1000"],
     ["llm_enabled", "false"],
-    ["llm_api_key", "null"],
-    ["llm_cost_cap_usd", "5"],
+    ["llm_endpoint", JSON.stringify("http://127.0.0.1:11434")],
+    ["llm_model", JSON.stringify("llama3.2:3b")],
+    ["llm_max_per_run", "2000"],
     ["session_mutation_cap", "50000"],
   ];
   const setSetting = db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)");

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import type { AppSettings, DbRule } from "@shared/types";
+import type { AppSettings, DbRule, LlmTestResult } from "@shared/types";
 import { useInvoke } from "../hooks/useIpc";
 
 export default function Settings({ onBack }: { onBack: () => void }) {
@@ -8,6 +8,10 @@ export default function Settings({ onBack }: { onBack: () => void }) {
   const [rules, setRules] = useState<DbRule[]>([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [llmTest, setLlmTest] = useState<LlmTestResult | null>(null);
+  const [llmTesting, setLlmTesting] = useState(false);
+  const [llmRunning, setLlmRunning] = useState(false);
+  const [llmResult, setLlmResult] = useState<string | null>(null);
   const [newRule, setNewRule] = useState<{ kind: DbRule["kind"]; pattern: string; note: string }>({
     kind: "allow_sender",
     pattern: "",
@@ -43,6 +47,32 @@ export default function Settings({ onBack }: { onBack: () => void }) {
   async function deleteRule(id: number) {
     await invoke("rules:delete", { id });
     setRules((prev) => prev.filter((r) => r.id !== id));
+  }
+
+  async function testLlm() {
+    setLlmTesting(true);
+    setLlmTest(null);
+    try {
+      const result = await invoke<LlmTestResult>("llm:test");
+      setLlmTest(result);
+    } finally {
+      setLlmTesting(false);
+    }
+  }
+
+  async function runLlm() {
+    setLlmRunning(true);
+    setLlmResult(null);
+    try {
+      const result = await invoke<{ classified: number; skipped: number }>("llm:run");
+      setLlmResult(
+        `Classified ${result.classified.toLocaleString()} messages (${result.skipped.toLocaleString()} left uncategorized).`
+      );
+    } catch (e) {
+      setLlmResult(`Error: ${String(e)}`);
+    } finally {
+      setLlmRunning(false);
+    }
   }
 
   if (!settings) return <div className="p-6 text-gray-500 text-sm">Loading…</div>;
@@ -99,6 +129,92 @@ export default function Settings({ onBack }: { onBack: () => void }) {
           {saved ? "Saved!" : saving ? "Saving…" : "Save settings"}
         </button>
       </div>
+
+      {/* Local LLM (Ollama) */}
+      <Section title="Local LLM classifier (Ollama)">
+        <p className="text-xs text-gray-500 mb-3">
+          Optionally classify messages that no rule matched using a local Ollama server. Runs
+          fully on your machine — no data leaves your computer. Install Ollama from{" "}
+          <span className="font-mono">ollama.com</span>, then{" "}
+          <span className="font-mono">ollama pull {settings.llm_model || "llama3.2:3b"}</span>.
+        </p>
+
+        <div className="flex items-center justify-between gap-4 py-2 border-b border-gray-800">
+          <label className="text-sm text-gray-300">Enable local LLM classifier</label>
+          <input
+            type="checkbox"
+            checked={settings.llm_enabled}
+            onChange={(e) => setSettingsState({ ...settings, llm_enabled: e.target.checked })}
+            className="h-4 w-4"
+          />
+        </div>
+
+        <div className="flex items-center justify-between gap-4 py-2 border-b border-gray-800">
+          <label className="text-sm text-gray-300">Ollama endpoint</label>
+          <input
+            type="text"
+            value={settings.llm_endpoint}
+            onChange={(e) => setSettingsState({ ...settings, llm_endpoint: e.target.value })}
+            disabled={!settings.llm_enabled}
+            className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm text-white w-64 text-right focus:outline-none focus:border-blue-500 disabled:opacity-50"
+          />
+        </div>
+
+        <div className="flex items-center justify-between gap-4 py-2 border-b border-gray-800">
+          <label className="text-sm text-gray-300">Model</label>
+          <input
+            type="text"
+            value={settings.llm_model}
+            onChange={(e) => setSettingsState({ ...settings, llm_model: e.target.value })}
+            disabled={!settings.llm_enabled}
+            placeholder="llama3.2:3b"
+            className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-sm text-white w-64 text-right font-mono focus:outline-none focus:border-blue-500 disabled:opacity-50"
+          />
+        </div>
+
+        <NumberField
+          label="Max messages per run"
+          value={settings.llm_max_per_run}
+          onChange={(v) => setSettingsState({ ...settings, llm_max_per_run: v })}
+          min={1}
+          max={100000}
+        />
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            onClick={testLlm}
+            disabled={!settings.llm_enabled || llmTesting}
+            className="bg-gray-800 hover:bg-gray-700 disabled:opacity-50 text-gray-300 text-xs px-3 py-1.5 rounded transition-colors"
+          >
+            {llmTesting ? "Testing…" : "Test connection"}
+          </button>
+          <button
+            onClick={runLlm}
+            disabled={!settings.llm_enabled || llmRunning}
+            className="bg-blue-700 hover:bg-blue-600 disabled:bg-gray-700 disabled:cursor-not-allowed text-white text-xs px-3 py-1.5 rounded transition-colors"
+          >
+            {llmRunning ? "Running…" : "Run on uncategorized"}
+          </button>
+        </div>
+
+        {llmTest && (
+          <div
+            className={`mt-3 text-xs px-3 py-2 rounded ${
+              llmTest.ok ? "bg-green-900/30 text-green-400" : "bg-red-900/30 text-red-400"
+            }`}
+          >
+            {llmTest.ok
+              ? `Reachable. ${llmTest.models?.length ?? 0} model(s) installed${
+                  llmTest.models?.length ? `: ${llmTest.models.slice(0, 5).join(", ")}` : ""
+                }`
+              : `Failed: ${llmTest.error}`}
+          </div>
+        )}
+
+        {llmResult && (
+          <div className="mt-3 text-xs px-3 py-2 rounded bg-gray-800 text-gray-300">{llmResult}</div>
+        )}
+      </Section>
 
       {/* Allowlist */}
       <Section title="Protected senders & keywords">

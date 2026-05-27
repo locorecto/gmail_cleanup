@@ -100,6 +100,33 @@ launch — click "More info" → "Run anyway".
 
 ---
 
+## Optional: local LLM classifier (Ollama)
+
+For messages that no rule matched, the app can ask a **local** LLM via
+[Ollama](https://ollama.com) to pick a category. Everything runs on your
+machine — no API keys, no cost, no data leaves your computer.
+
+1. Install Ollama for Windows from <https://ollama.com/download>.
+2. Open PowerShell and pull a small model:
+   ```powershell
+   ollama pull llama3.2:3b
+   ```
+   (Larger models like `qwen2.5:7b` or `llama3.1:8b` classify better but
+   are slower. Pick whatever fits your hardware.)
+3. Start the Ollama server (it auto-starts after install, or run
+   `ollama serve`).
+4. In the app: **Settings → Local LLM classifier** → enable, set the
+   model name (e.g. `llama3.2:3b`), click **Test connection**.
+5. Click **Run on uncategorized**. The app sends one message at a time
+   (sender, subject, ~240-char snippet, age, flags — **never** the full
+   body) and stores the returned category. Bounded by the
+   "Max messages per run" cap.
+
+Endpoint defaults to `http://127.0.0.1:11434`. Change it if Ollama is
+running on a different port or remote machine.
+
+---
+
 ## Where data lives
 
 | What | Path |

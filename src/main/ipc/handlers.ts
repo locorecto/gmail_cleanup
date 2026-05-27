@@ -15,12 +15,14 @@ import {
 } from "../db/index";
 import { fullBackfill, incrementalSync } from "../sync/backfill";
 import { executeAction, undoAction, getBatchPreview } from "../actions/executor";
+import { runLlmClassifier, testOllama } from "../categorizer/llm";
 import type {
   ConnectedAccount,
   CategorySummary,
   MessageRow,
   SyncProgress,
   ActionLogEntry,
+  LlmRunProgress,
 } from "../../shared/types";
 import * as keytar from "keytar";
 
@@ -37,6 +39,10 @@ export function setMainWindow(win: BrowserWindow): void {
 
 function emitProgress(progress: SyncProgress): void {
   _mainWindow?.webContents.send("sync:progress", progress);
+}
+
+function emitLlmProgress(progress: LlmRunProgress): void {
+  _mainWindow?.webContents.send("llm:progress", progress);
 }
 
 function requireGmail(): { gmail: GmailClient; email: string } {
@@ -203,5 +209,16 @@ export function registerIpcHandlers(): void {
   ipcMain.handle("settings:get", async () => getSettings(getDb()));
   ipcMain.handle("settings:set", async (_event, patch: Parameters<typeof setSettings>[1]) => {
     return setSettings(getDb(), patch);
+  });
+
+  // ── Local LLM (Ollama) ────────────────────────────────────────────────────
+
+  ipcMain.handle("llm:test", async () => {
+    const settings = getSettings(getDb());
+    return testOllama(settings.llm_endpoint);
+  });
+
+  ipcMain.handle("llm:run", async () => {
+    return runLlmClassifier(getDb(), emitLlmProgress);
   });
 }
