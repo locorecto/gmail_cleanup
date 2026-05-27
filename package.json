@@ -44,9 +44,17 @@
   "build": {
     "appId": "com.personal.gmail-cleanup",
     "productName": "Gmail Cleanup",
-    "linux": {
-      "target": ["AppImage", "deb"],
-      "category": "Utility"
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false
     },
     "files": ["dist/**/*", "dist-electron/**/*"],
     "extraResources": []

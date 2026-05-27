@@ -39,6 +39,7 @@ export interface RuleSettings {
   allowedDomains: Set<string>;
   allowedKeywords: Set<string>;
   allowedLabels: Set<string>;
+  // set of sender emails the account has replied to (replied_count > 0)
   repliedSenders: Set<string>;
 }
 
@@ -106,6 +107,8 @@ export const ruleCalendarPast: Rule = (msg, _sender, _settings, now) => {
 
   if (!isCalendar) return null;
 
+  // For calendar emails, consider "past" if the message itself is > 1 day old
+  // (the event has almost certainly passed for old invites)
   if (ageMs(msg, now) > DAY_MS) {
     return { category_id: "calendar_past", confidence: 0.9 };
   }
@@ -162,6 +165,7 @@ export const rulePromos: Rule = (msg, _sender, _settings, now) => {
 export const ruleNewsletters: Rule = (msg, sender) => {
   if (!msg.has_list_unsub && !msg.list_id) return null;
 
+  // If I've replied to this sender, don't categorize
   if (sender && sender.replied_count > 0) return null;
 
   return { category_id: "newsletters", confidence: 1 };
@@ -200,7 +204,7 @@ export const ruleOneOff: Rule = (msg, sender, _settings, now) => {
   if (!sender) return null;
   if (ageMs(msg, now) < 90 * DAY_MS) return null;
   if (sender.total_count > 2) return null;
-  if (sender.unread_count < sender.total_count) return null;
+  if (sender.unread_count < sender.total_count) return null; // not all unread
   return { category_id: "one_off", confidence: 0.85 };
 };
 

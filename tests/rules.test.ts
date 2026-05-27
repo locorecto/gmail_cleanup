@@ -125,7 +125,7 @@ describe("ruleCalendarPast", () => {
   it("does not match very recent calendar emails", () => {
     const m = msg({
       from_email: "calendar-notification@google.com",
-      internal_date: NOW - 60 * 1000,
+      internal_date: NOW - 60 * 1000, // 1 minute ago
     });
     expect(ruleCalendarPast(m, undefined, baseSettings, NOW)).toBeNull();
   });

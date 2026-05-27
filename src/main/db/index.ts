@@ -64,7 +64,7 @@ function migrate(db: Database.Database): void {
   }
 }
 
-// ── Settings ───────────────────────────────────────────────────────────────────
+// ── Settings ──────────────────────────────────────────────────────────────────
 
 export function getSettings(db: Database.Database): AppSettings {
   const rows = db.prepare("SELECT key, value FROM settings").all() as { key: string; value: string }[];
@@ -128,6 +128,7 @@ export function updateMessageCategories(
 export function rebuildSenders(db: Database.Database, accountEmail: string): void {
   db.exec("DELETE FROM senders");
 
+  // Compute sender stats from messages table
   const rows = db.prepare(`
     SELECT
       from_email AS email,
@@ -145,6 +146,7 @@ export function rebuildSenders(db: Database.Database, accountEmail: string): voi
     first_seen: number; last_seen: number;
   }>;
 
+  // Count replied threads: threads where I also sent a message
   const repliedEmails = new Set<string>(
     (db.prepare(`
       SELECT DISTINCT m.from_email
@@ -175,7 +177,7 @@ export function rebuildSenders(db: Database.Database, accountEmail: string): voi
   tx();
 }
 
-// ── Sync state ──────────────────────────────────────────────────────────────────
+// ── Sync state ────────────────────────────────────────────────────────────────
 
 export function getSyncState(db: Database.Database, email: string): DbSyncState | null {
   return db.prepare("SELECT * FROM sync_state WHERE account_email = ?").get(email) as DbSyncState | null;

@@ -56,6 +56,7 @@ export default function Settings({ onBack }: { onBack: () => void }) {
         <h1 className="text-xl font-bold text-white">Settings</h1>
       </div>
 
+      {/* Thresholds */}
       <Section title="Category thresholds">
         <NumberField
           label="Receipts older than (months)"
@@ -99,6 +100,7 @@ export default function Settings({ onBack }: { onBack: () => void }) {
         </button>
       </div>
 
+      {/* Allowlist */}
       <Section title="Protected senders & keywords">
         <p className="text-xs text-gray-500 mb-3">
           Emails matching any of these rules are never offered for deletion, regardless of category.
@@ -127,6 +129,7 @@ export default function Settings({ onBack }: { onBack: () => void }) {
           </div>
         )}
 
+        {/* Add new rule */}
         <div className="flex gap-2 flex-wrap">
           <select
             value={newRule.kind}

@@ -80,6 +80,7 @@ export default function CategoryReview({
     const ids = selectedIds.size > 0 ? [...selectedIds] : undefined;
     const p = await invoke<BatchPreview>("batch:preview", { category_id: categoryId, message_ids: ids });
     setPreview(p);
+    // Execute as dry run without showing confirm
     const result = await invoke<{ log_id: number; affected: number }>("batch:execute", {
       category_id: categoryId,
       message_ids: ids,
@@ -125,6 +126,7 @@ export default function CategoryReview({
 
   return (
     <div className="p-6 max-w-4xl">
+      {/* Header */}
       <div className="flex items-center gap-3 mb-1">
         <button
           onClick={onBack}
@@ -140,6 +142,7 @@ export default function CategoryReview({
         <p className="text-sm text-gray-500 mb-4">{categoryInfo.description}</p>
       )}
 
+      {/* Feedback banners */}
       {success && (
         <div className="mb-4 bg-green-900/30 border border-green-800 rounded-lg px-4 py-3 text-green-400 text-sm flex justify-between">
           <span>{success}</span>
@@ -153,6 +156,7 @@ export default function CategoryReview({
         </div>
       )}
 
+      {/* Toolbar */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">
         <span className="text-sm text-gray-400">
           {total.toLocaleString()} messages
@@ -184,6 +188,7 @@ export default function CategoryReview({
         </div>
       </div>
 
+      {/* Message list */}
       {loading ? (
         <div className="text-gray-500 text-sm py-8 text-center">Loading…</div>
       ) : messages.length === 0 ? (
@@ -201,6 +206,7 @@ export default function CategoryReview({
             ))}
           </div>
 
+          {/* Pagination */}
           <div className="flex items-center gap-4 mt-4 text-sm text-gray-400">
             <button
               onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
@@ -223,6 +229,7 @@ export default function CategoryReview({
         </>
       )}
 
+      {/* Confirm modal */}
       {showConfirm && preview && settings && (
         <ConfirmModal
           preview={preview}

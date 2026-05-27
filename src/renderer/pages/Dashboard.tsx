@@ -74,6 +74,7 @@ export default function Dashboard({
 
   return (
     <div className="p-6 max-w-4xl">
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-white">Dashboard</h1>
@@ -90,6 +91,7 @@ export default function Dashboard({
         </button>
       </div>
 
+      {/* Sync progress bar */}
       {syncing && progress && (
         <div className="mb-6 bg-gray-900 border border-gray-800 rounded-lg p-4">
           <div className="flex justify-between text-sm text-gray-400 mb-2">
@@ -119,6 +121,7 @@ export default function Dashboard({
         </div>
       )}
 
+      {/* Summary stats */}
       {categories.length > 0 && (
         <div className="grid grid-cols-3 gap-4 mb-6">
           <Stat label="Categorized messages" value={totalMessages.toLocaleString()} />
@@ -127,6 +130,7 @@ export default function Dashboard({
         </div>
       )}
 
+      {/* Category cards */}
       {categories.length === 0 && !syncing ? (
         <div className="text-center py-16 text-gray-500 text-sm">
           {account.last_sync

@@ -7,6 +7,7 @@ export function runCategorizer(db: Database.Database, accountEmail: string): voi
   const settings = getSettings(db);
   const dbRules = getRules(db);
 
+  // Load sender stats into a map
   const senders = new Map<string, SenderStats>(
     (db.prepare("SELECT * FROM senders").all() as SenderStats[]).map((s) => [
       s.email,
@@ -14,6 +15,7 @@ export function runCategorizer(db: Database.Database, accountEmail: string): voi
     ])
   );
 
+  // Build set of senders the account has replied to
   const repliedSenders = new Set<string>(
     [...senders.values()]
       .filter((s) => s.replied_count > 0)
@@ -31,6 +33,7 @@ export function runCategorizer(db: Database.Database, accountEmail: string): voi
     repliedSenders
   );
 
+  // Process in chunks to avoid loading all messages into memory at once
   const CHUNK = 5000;
   let offset = 0;
   const now = Date.now();
@@ -63,6 +66,7 @@ export function runCategorizer(db: Database.Database, accountEmail: string): voi
           confidence: matched.confidence,
         });
       } else if (!matched) {
+        // Clear any stale category
         assignments.push({ id: msg.id, category_id: "", confidence: 0 });
       }
     }
@@ -71,6 +75,7 @@ export function runCategorizer(db: Database.Database, accountEmail: string): voi
     if (msgs.length < CHUNK) break;
   }
 
+  // Write in one transaction
   const validAssignments = assignments.filter((a) => a.category_id !== "");
   const clearAssignments = assignments
     .filter((a) => a.category_id === "")

@@ -7,6 +7,7 @@ export function createGmailClient(auth: OAuth2Client): GmailClient {
   return google.gmail({ version: "v1", auth });
 }
 
+// Retry wrapper with exponential backoff
 async function withRetry<T>(
   fn: () => Promise<T>,
   maxRetries = 5
@@ -31,7 +32,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-// ── Message listing ─────────────────────────────────────────────────────────────
+// ── Message listing ───────────────────────────────────────────────────────────
 
 export async function listAllMessageIds(
   gmail: GmailClient,
@@ -52,13 +53,14 @@ export async function listAllMessageIds(
 
     const ids = (res.data.messages ?? []).map((m) => m.id!);
     if (ids.length > 0) onPage(ids);
-    // historyId not in list response typings but returned by the API
+    // historyId is not in the list response typings but is returned by the API
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const rawHistoryId = (res.data as any).historyId;
     if (rawHistoryId) historyId = String(rawHistoryId);
     pageToken = res.data.nextPageToken ?? undefined;
   } while (pageToken);
 
+  // Fall back to profile API if historyId not captured from list response
   if (!historyId) {
     const profile = await withRetry(() => gmail.users.getProfile({ userId: "me" }));
     historyId = profile.data.historyId ?? "";
@@ -67,7 +69,7 @@ export async function listAllMessageIds(
   return { historyId };
 }
 
-// ── Metadata batch fetch ───────────────────────────────────────────────────────
+// ── Metadata batch fetch ──────────────────────────────────────────────────────
 
 const METADATA_FIELDS =
   "id,threadId,labelIds,snippet,sizeEstimate,internalDate,payload/headers";
@@ -96,6 +98,9 @@ export async function fetchMessagesBatch(
   gmail: GmailClient,
   ids: string[]
 ): Promise<MessageMetadata[]> {
+  // Gmail's HTTP batch API: up to 100 requests in one HTTP call
+  // We use the library's per-request API with concurrency limit instead,
+  // since googleapis doesn't expose raw batch easily in v4+.
   const CONCURRENCY = 10;
   const results: MessageMetadata[] = [];
 
@@ -134,6 +139,8 @@ export async function fetchMessagesBatch(
       });
     }
 
+    // Respect quota: 10 messages.get at 5 units each = 50 units per chunk
+    // 250 units/sec → we can fire 5 chunks/sec. Add small delay.
     if (i + CONCURRENCY < ids.length) {
       await sleep(200);
     }
@@ -142,7 +149,7 @@ export async function fetchMessagesBatch(
   return results;
 }
 
-// ── batchModify ────────────────────────────────────────────────────────────────
+// ── batchModify ───────────────────────────────────────────────────────────────
 
 export async function moveToTrash(
   gmail: GmailClient,
@@ -205,7 +212,7 @@ export async function archiveMessages(
   }
 }
 
-// ── History (incremental sync) ────────────────────────────────────────────────────
+// ── History (incremental sync) ─────────────────────────────────────────────────
 
 export interface HistoryResult {
   added: string[];

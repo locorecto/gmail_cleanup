@@ -17,6 +17,7 @@ export function createOAuth2Client(redirectUri: string): OAuth2Client {
 }
 
 export async function runOAuthFlow(): Promise<{ email: string; client: OAuth2Client }> {
+  // Pick a random port for the local callback listener
   const port = await getFreePort();
   const redirectUri = `http://127.0.0.1:${port}/oauth/callback`;
   const client = createOAuth2Client(redirectUri);
@@ -27,6 +28,7 @@ export async function runOAuthFlow(): Promise<{ email: string; client: OAuth2Cli
     scope: SCOPES,
   });
 
+  // Start local listener before opening browser
   const code = await listenForCode(port);
   shell.openExternal(authUrl);
 
@@ -48,9 +50,11 @@ export async function loadSavedCredentials(email: string): Promise<OAuth2Client 
   if (!raw) return null;
 
   const tokens = JSON.parse(raw);
+  // Use a placeholder redirect — it won't be called for token refresh
   const client = createOAuth2Client("http://127.0.0.1");
   client.setCredentials(tokens);
 
+  // Persist refreshed tokens back to keychain automatically
   client.on("tokens", async (newTokens) => {
     const merged = { ...tokens, ...newTokens };
     await keytar.setPassword(KEYTAR_SERVICE, email, JSON.stringify(merged));
@@ -108,6 +112,7 @@ function listenForCode(port: number): Promise<string> {
     });
     server.listen(port, "127.0.0.1");
     server.on("error", reject);
+    // Timeout after 5 minutes
     setTimeout(() => {
       server.close();
       reject(new Error("OAuth timeout"));

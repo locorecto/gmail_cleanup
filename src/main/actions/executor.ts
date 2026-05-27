@@ -7,7 +7,7 @@ import type { BatchPreview, DbMessage } from "../../shared/types";
 
 export interface ExecuteOptions {
   category_id: string;
-  message_ids?: string[];
+  message_ids?: string[]; // if undefined, use all in category
   action: "trash" | "archive";
   dry_run: boolean;
   gmail: GmailClient;
@@ -20,6 +20,7 @@ export async function executeAction(
 ): Promise<{ log_id: number; affected: number }> {
   const settings = getSettings(db);
 
+  // Resolve message IDs
   let ids: string[];
   if (opts.message_ids && opts.message_ids.length > 0) {
     ids = opts.message_ids;
@@ -42,6 +43,7 @@ export async function executeAction(
     return { log_id: logId, affected: 0 };
   }
 
+  // Session mutation cap check
   if (!opts.dry_run && ids.length > settings.session_mutation_cap) {
     throw new Error(
       `Batch of ${ids.length} exceeds session mutation cap of ${settings.session_mutation_cap}. ` +
@@ -63,13 +65,16 @@ export async function executeAction(
     return { log_id: logId, affected: ids.length };
   }
 
+  // Local backup before mutation
   const msgRows = db
     .prepare(`SELECT * FROM messages WHERE id IN (${ids.map(() => "?").join(",")})`)
     .all(...ids) as DbMessage[];
   await writeBackup(opts.accountEmail, logId, msgRows);
 
+  // Execute against Gmail API
   if (opts.action === "trash") {
     await moveToTrash(opts.gmail, ids);
+    // Remove from local cache so they don't reappear in categories
     const stmt = db.prepare("UPDATE messages SET category_id = NULL, labels = json_set(labels, '$[#]', 'TRASH') WHERE id = ?");
     const tx = db.transaction(() => {
       for (const id of ids) stmt.run(id);
@@ -145,6 +150,7 @@ export function getBatchPreview(
     FROM messages WHERE id IN (${placeholders})
   `).get(...ids) as { cnt: number; total_size: number; oldest: number; newest: number };
 
+  // 5 oldest + 5 newest subjects for the sample
   const oldest5 = db.prepare(`
     SELECT subject FROM messages WHERE id IN (${placeholders})
     ORDER BY internal_date ASC LIMIT 5
@@ -166,6 +172,6 @@ export function getBatchPreview(
     oldest_date: stats.oldest ?? null,
     newest_date: stats.newest ?? null,
     sample_subjects: sample,
-    excluded_count: 0,
+    excluded_count: 0, // protected messages are already excluded before this point
   };
 }

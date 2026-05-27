@@ -12,6 +12,7 @@ import { runCategorizer } from "../categorizer/engine";
 export type ProgressCallback = (progress: SyncProgress) => void;
 
 function parseEmail(header: string): string {
+  // "Display Name <email@domain.com>" → "email@domain.com"
   const match = header.match(/<([^>]+)>/);
   return (match ? match[1] : header).trim().toLowerCase();
 }
@@ -69,6 +70,7 @@ export async function fullBackfill(
 
   onProgress({ phase: "listing", total: 0, done: 0, message: "Listing all messages…" });
 
+  // Collect all IDs first so we can show progress
   const allIds: string[] = [];
   const { historyId } = await listAllMessageIds(gmail, (ids) => {
     allIds.push(...ids);
@@ -114,6 +116,7 @@ export async function incrementalSync(
 ): Promise<void> {
   const state = getSyncState(db, accountEmail);
   if (!state?.last_history_id) {
+    // No cursor → do a full backfill
     return fullBackfill(gmail, db, accountEmail, onProgress);
   }
 
@@ -121,6 +124,7 @@ export async function incrementalSync(
 
   const result = await fetchHistory(gmail, state.last_history_id);
   if (result === "too_old") {
+    // historyId expired → fall back to full backfill
     onProgress({ phase: "fetching", total: 0, done: 0, message: "History expired — running full sync…" });
     return fullBackfill(gmail, db, accountEmail, onProgress);
   }

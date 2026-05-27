@@ -64,7 +64,7 @@ export async function restoreSession(): Promise<void> {
 }
 
 export function registerIpcHandlers(): void {
-  // ── Auth ──────────────────────────────────────────────────────────────────────────
+  // ── Auth ──────────────────────────────────────────────────────────────────
 
   ipcMain.handle("auth:status", async () => {
     return _account;
@@ -88,7 +88,7 @@ export function registerIpcHandlers(): void {
     _gmail = null;
   });
 
-  // ── Sync ──────────────────────────────────────────────────────────────────────────
+  // ── Sync ──────────────────────────────────────────────────────────────────
 
   ipcMain.handle("sync:start", async () => {
     const { gmail, email } = requireGmail();
@@ -105,13 +105,13 @@ export function registerIpcHandlers(): void {
     if (_account) _account.last_sync = newState?.last_sync ?? null;
   });
 
-  // ── Categories ──────────────────────────────────────────────────────────────────
+  // ── Categories ────────────────────────────────────────────────────────────
 
   ipcMain.handle("categories:list", async (): Promise<CategorySummary[]> => {
     return getCategorySummaries(getDb()) as CategorySummary[];
   });
 
-  // ── Messages ────────────────────────────────────────────────────────────────────
+  // ── Messages ──────────────────────────────────────────────────────────────
 
   ipcMain.handle(
     "messages:list",
@@ -132,7 +132,7 @@ export function registerIpcHandlers(): void {
     }
   );
 
-  // ── Batch preview & execute ──────────────────────────────────────────────────────
+  // ── Batch preview & execute ───────────────────────────────────────────────
 
   ipcMain.handle(
     "batch:preview",
@@ -157,7 +157,7 @@ export function registerIpcHandlers(): void {
     return undoAction(getDb(), gmail, log_id);
   });
 
-  // ── Action log ────────────────────────────────────────────────────────────────
+  // ── Action log ────────────────────────────────────────────────────────────
 
   ipcMain.handle(
     "actionlog:list",
@@ -183,7 +183,7 @@ export function registerIpcHandlers(): void {
     }
   );
 
-  // ── Rules ─────────────────────────────────────────────────────────────────────
+  // ── Rules ─────────────────────────────────────────────────────────────────
 
   ipcMain.handle("rules:list", async () => getRules(getDb()));
 
@@ -198,7 +198,7 @@ export function registerIpcHandlers(): void {
     deleteRule(getDb(), id);
   });
 
-  // ── Settings ────────────────────────────────────────────────────────────────
+  // ── Settings ──────────────────────────────────────────────────────────────
 
   ipcMain.handle("settings:get", async () => getSettings(getDb()));
   ipcMain.handle("settings:set", async (_event, patch: Parameters<typeof setSettings>[1]) => {

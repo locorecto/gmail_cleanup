@@ -19,6 +19,7 @@ function openTestDb(): Database.Database {
   );
   db.exec(schema);
 
+  // Seed categories
   const ins = db.prepare(
     "INSERT OR IGNORE INTO categories (id, display_name, description, priority, default_action, enabled) VALUES (@id, @display_name, @description, @priority, @default_action, @enabled)"
   );
@@ -27,6 +28,7 @@ function openTestDb(): Database.Database {
   });
   tx();
 
+  // Seed default settings
   const defaults = [
     ["receipts_months", "6"],
     ["attachments_months", "12"],
@@ -102,6 +104,7 @@ describe("categorizer engine", () => {
     runCategorizer(db, "me@gmail.com");
 
     const row = db.prepare("SELECT category_id FROM messages WHERE id = ?").get(newsletter.id) as { category_id: string | null };
+    // Should not be in newsletters because I've replied in the thread
     expect(row.category_id).toBeNull();
   });
 
