@@ -56,8 +56,8 @@ git checkout claude/plan-gmail-cleanup-app-5M8w1
 npm install
 
 # Set OAuth credentials for this session:
-$env:GOOGLE_CLIENT_ID    = "xxx.apps.googleusercontent.com"
-$env:GOOGLE_CLIENT_SECRET = "GOCSPX-xxxxxxxx"
+$env:GMAIL_CLIENT_ID    = "xxx.apps.googleusercontent.com"
+$env:GMAIL_CLIENT_SECRET = "GOCSPX-xxxxxxxx"
 
 # Run in dev mode (Vite + Electron):
 npm run dev
@@ -66,8 +66,8 @@ npm run dev
 To persist the env vars across sessions, run once (PowerShell, as your user):
 
 ```powershell
-[Environment]::SetEnvironmentVariable("GOOGLE_CLIENT_ID","xxx.apps.googleusercontent.com","User")
-[Environment]::SetEnvironmentVariable("GOOGLE_CLIENT_SECRET","GOCSPX-xxxxxxxx","User")
+[Environment]::SetEnvironmentVariable("GMAIL_CLIENT_ID","xxx.apps.googleusercontent.com","User")
+[Environment]::SetEnvironmentVariable("GMAIL_CLIENT_SECRET","GOCSPX-xxxxxxxx","User")
 ```
 
 Then restart your terminal.

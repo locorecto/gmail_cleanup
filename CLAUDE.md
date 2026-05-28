@@ -23,7 +23,6 @@ npm run lint          # biome check src
 
 Required env vars for `npm run dev` (OAuth Desktop client from Google Cloud):
 `GMAIL_CLIENT_ID` and `GMAIL_CLIENT_SECRET` — see `src/main/auth/oauth.ts:12`.
-Note: `README.md` currently says `GOOGLE_*` — the code reads `GMAIL_*`.
 
 Typecheck both halves separately — they have different tsconfigs:
 `npx tsc -p tsconfig.electron.json --noEmit` (main process, CommonJS, node types)
